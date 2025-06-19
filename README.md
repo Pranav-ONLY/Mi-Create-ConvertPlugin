@@ -1,10 +1,9 @@
 # Mi-Create-ConvertPlugin
 ![00](images/00.png)
-This is a Plugin for Mi-Create. It convert watchfaces made for one Model to another model.
+This is a Plugin for Mi-Create. It convert watchfaces from one model to another model.
 This plugin converts watchfaces resources to fit to another devices shape and size.
 Please report any issues to https://t.me/Pranav_8393
 <br />
-<h2 align="center"> Mi-Create-ConvertPlugin</h2>
 <p align="center"> Compatible with all Xiaomi wearables made ~2021 and above.</p>
 <p align="center"> Designed for Lazy and Creative People. It Helps save time. Create Once Use everywhere</p>
 
@@ -57,8 +56,8 @@ NOTE: sometimes it might briefly go into the "Not Responding" state; give it one
 ## Installation (Windows Only):
 
 ### 
-1. Download and install the latest Version of [Mi-Create](https://github.com/ooflet/Mi-Create).
-2. Download plgin file from release
+1. Download and install the latest Version of [Mi-Create](https://github.com/ooflet/Mi-Create/releases).
+2. Download plugin ( `.plg` file) file from [releases](https://github.com/Pranav-ONLY/Mi-Create-ConvertPlugin/releases)
 3. Go to settings -> click on menu ( ⋮ )three dots.![instructions](images/install_00.jpg)
 4. Select downloaded plugin file ( `.plg` file) and wait for it to show up.
 
