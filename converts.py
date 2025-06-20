@@ -249,6 +249,7 @@ class Plugin:
         if str(project['data']['FaceProject']['@DeviceType']) == str(self.dtF):
             project['data']['FaceProject']['@DeviceType'] = str(self.dtT)
         else:
+            self.main_window.showDialog("error", _(f"Failed to Convert project: Please select {self.from_model} Project"))
             return
         if str(project['data']['FaceProject']['Screen']['@Bitmap']) != '':
             self.resizeImage(project['data']['FaceProject']['Screen']['@Bitmap'], int(self.px), int(self.py))
@@ -274,7 +275,7 @@ class Plugin:
             widget['@Width'] = str(round(float(widget['@Width']) * self.x_factor))
             widget['@Height'] = str(round(float(widget['@Height']) * self.y_factor))
                         
-            self.progressBar.setValue(i + 1) # for small progressbar
+             # for small progressbar
             if i == 0:
                 if str(widget['@Shape']) == '30':
                     if int(widget['@Width']) == self.to_res_x and int(widget['@Height']) == self.to_res_y:
@@ -388,6 +389,8 @@ class Plugin:
                     self.resizeImage(widget['@SecondHand_Image'], newWidthS, newHeightS)
                 widget['@SecondImage_rotate_xc'] = round((float(widget['@SecondImage_rotate_xc'])*self.mean))
                 widget['@SecondImage_rotate_yc'] = round((float(widget['@SecondImage_rotate_yc'])*self.mean))
+            
+            self.progressBar.setValue(i + 1)# Update progress bar
 
     def resizeImage(self, imagePath, newWidth, newHeight):
           # Use the larger scale to determine upscaling or downscaling
@@ -547,6 +550,179 @@ class Plugin:
         self.progressBar.setValue(0)
         self.main_window.saveProjects("current")
 
+    def projectCompression(self, project):
+        if self.eightBitCheckBox.isChecked() or self.compressCheckBox.isChecked():
+            print("Compression Started")
+        else:
+            print("No Compression Selected")
+            self.main_window.showDialog("error", _("Failed to Compress project: Please select at least one compression option."))
+            return
+
+        self.projectImagepath = project['imageFolder']
+        self.from_model = self.fromModelComboBox.currentText()
+        self.to_model = self.toModelComboBox.currentText()
+        if self.from_model != self.to_model:
+            print("Invalid Compression, Please select Similar models for image compression.")
+            return
+        print(f"Compressiong {self.from_model}, 8-bit={self.eightBitCheckBox.isChecked()}, optimizePNG={self.compressCheckBox.isChecked()}")
+    
+        self.is_8bit = True if self.eightBitCheckBox.isChecked() else False
+        self.compressPNG = True if self.compressCheckBox.isChecked() else False
+        self.image_compressed_map = {} # to store compressed images to avoid compressing same image again and again
+        
+
+        #compress preview image
+        if str(project['data']['FaceProject']['Screen']['@Bitmap']) != '':
+            preview_image = os.path.join(self.projectImagepath, str(project['data']['FaceProject']['Screen']['@Bitmap']))
+            if self.is_8bit:
+                self.to_8bit(preview_image)
+            if self.compressPNG:
+                self.compressImage(preview_image)
+
+        # Process each Widget
+        widgets = project['widgets']
+        if not isinstance(widgets, list):
+            widgets = [widgets]  # Ensure widgets is a list
+        self.progressBar.setMaximum(len(widgets))
+        self.progressBar.setValue(0)  # Reset progress bar
+
+        for i, widget in enumerate(widgets):
+            if '@Bitmap' in widget:
+                fullPath = os.path.join(self.projectImagepath, widget['@Bitmap'])
+                if os.path.exists(fullPath):
+                    if not self.image_compressed_map.get(widget['@Bitmap'], False):
+                        if self.is_8bit:
+                            self.to_8bit(fullPath)
+                        if self.compressPNG:
+                            self.compressImage(fullPath)
+                        self.image_compressed_map[widget['@Bitmap']] = True
+            elif '@BitmapList' in widget:
+                for bitmap in widget['@BitmapList'].split('|'):
+                    if bitmap == "":
+                        break
+                    bitmaplist_imagepath = bitmap.split(':')[1] if ':' in bitmap else bitmap
+                    fullPath = os.path.join(self.projectImagepath, bitmaplist_imagepath)
+                    if os.path.exists(fullPath):
+                        if not self.image_compressed_map.get(bitmaplist_imagepath, False):
+                            if self.is_8bit:
+                                self.to_8bit(fullPath)
+                            if self.compressPNG:
+                                self.compressImage(fullPath)
+                            self.image_compressed_map[bitmaplist_imagepath] = True
+
+            elif widget['@Shape'] == '42':
+                if widget['@Background_ImageName'] != "":
+                    img_path =  os.path.join(self.projectImagepath, widget['@Background_ImageName'])
+                    if os.path.exists(img_path):
+                        if not self.image_compressed_map.get(widget['@Background_ImageName'], False):
+                            if self.is_8bit:
+                                self.to_8bit(img_path)
+                            if self.compressPNG:
+                                self.compressImage(img_path)
+                            self.image_compressed_map[widget['@Background_ImageName']] = True
+
+                if widget['@Foreground_ImageName'] != "":
+                    img_path =  os.path.join(self.projectImagepath, widget['@Foreground_ImageName'])
+                    if os.path.exists(img_path):
+                        if not self.image_compressed_map.get(widget['@Foreground_ImageName'], False):
+                            if self.is_8bit:
+                                self.to_8bit(img_path)
+                            if self.compressPNG:
+                                self.compressImage(img_path)
+                            self.image_compressed_map[widget['@Foreground_ImageName']] = True
+
+            elif '@HourHand_ImageName' in widget and str(widget['@HourHand_ImageName']) != '':
+                img_path =  os.path.join(self.projectImagepath, widget['@HourHand_ImageName'])
+                if os.path.exists(img_path):
+                    if not self.image_compressed_map.get(widget['@HourHand_ImageName'], False):
+                        if self.is_8bit:
+                            self.to_8bit(img_path)
+                        if self.compressPNG:
+                            self.compressImage(img_path)
+                        self.image_compressed_map[widget['@HourHand_ImageName']] = True
+            if '@MinuteHand_Image' in widget and str(widget['@MinuteHand_Image']) != '':
+                img_path =  os.path.join(self.projectImagepath, widget['@MinuteHand_Image'])
+                if os.path.exists(img_path):
+                    if not self.image_compressed_map.get(widget['@MinuteHand_Image'], False):
+                        if self.is_8bit:
+                            self.to_8bit(img_path)
+                        if self.compressPNG:
+                            self.compressImage(img_path)
+                        self.image_compressed_map[widget['@MinuteHand_Image']] = True
+            if '@SecondHand_Image' in widget and str(widget['@SecondHand_Image']) != '':
+                img_path =  os.path.join(self.projectImagepath, widget['@SecondHand_Image'])
+                if os.path.exists(img_path):
+                    if not self.image_compressed_map.get(widget['@SecondHand_Image'], False):
+                        if self.is_8bit:
+                            self.to_8bit(img_path)
+                        if self.compressPNG:
+                            self.compressImage(img_path)
+                        self.image_compressed_map[widget['@SecondHand_Image']] = True
+
+            self.progressBar.setValue(i + 1)# Update progress bar
+
+
+
+
+
+    def compression(self, event=None, projectLocation=None):
+        print("Compression Started")
+        # Get where to open the project from
+        if projectLocation == None:
+            projectLocation = QFileDialog.getOpenFileName(self.main_window, _('Compress Project...'), "%userprofile%/", "Watchface Project (*.fprj wfDef.json)")
+
+        if not isinstance(projectLocation, str):
+            projectLocation = projectLocation[0].replace("\\", "/")
+
+        if os.path.isfile(projectLocation):
+            extension = os.path.splitext(projectLocation)[1]
+            if extension == '.fprj':
+                project = FprjProject()
+            elif extension == ".json":
+                self.showDialog("warning", "GMFProjects are experimental! Bugs may occur.")
+                project = GMFProject()
+            else:
+                self.showDialog("error", "Invalid project!")
+                return False
+        else:
+            # no file was selected
+            logging.debug(f"openProject failed to open project {projectLocation}: isfile failed!")
+            return False
+
+        load = project.load(projectLocation)
+        if project.themes['aod']['imageFolder'] != "":
+            self.projectCompression(project.themes['aod'])
+        self.projectCompression(project.themes['default'])
+        if load[0]:
+            try:
+                self.main_window.createNewWorkspace(project)
+                recentProjectList = self.settings.value("recentProjects")
+
+                if recentProjectList == None:
+                    recentProjectList = []
+
+                path = os.path.normpath(projectLocation)
+
+                if isinstance(project, FprjProject):
+                    projectListing = [os.path.basename(path), path]
+                elif isinstance(project, GMFProject):
+                    projectListing = [project.getTitle(), path]
+
+                if projectListing in recentProjectList:
+                    recentProjectList.pop(recentProjectList.index(projectListing))
+
+                recentProjectList.append(projectListing)
+
+                self.settings.setValue("recentProjects", recentProjectList)
+            except Exception as e:
+                self.main_window.showDialog("error", _("Failed to open project: ") + str(e), traceback.format_exc())
+                return False
+        else:
+            self.main_window.showDialog("error", _('Cannot open project: ') + load[1], load[2])
+            return False
+        self.progressBar.setValue(0)
+        self.main_window.saveProjects("current")
+
 
     def register(self):
         # Function is called upon plugin initialization
@@ -602,19 +778,55 @@ class Plugin:
         self.convertButton.setToolTip("Click to start the conversion")
         self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.convertButton)
         self.convertButton.clicked.connect(self.conversion)
+
+        # for compressButton to start the compression
+        self.compressButton = QPushButton("Compress", self.main_window.coreDialog)
+        self.compressButton.setToolTip("Click to start the compression")
+        self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.compressButton)
+        self.compressButton.clicked.connect(self.compression)
+        self.compressButton.hide()  # Hide the compress button for now, as compression is not implemented
+
+        # Connect the convertButton and compressButton to their respective functions
+        self.compressCheckBox.clicked.connect(self.updateButtonStatus)  # Update button state when checkbox is clicked
+        self.eightBitCheckBox.clicked.connect(self.updateButtonStatus)  # Update button state when checkbox is clicked   
+
+        #for changing conversion to compression
+        self.toModelComboBox.currentIndexChanged.connect(self.updateButtonState)
+        self.fromModelComboBox.currentIndexChanged.connect(self.updateButtonState)
+
+
         # for little progress bar
         self.progressBar = QProgressBar(self.main_window.coreDialog)
         self.progressBar.setMaximum(100)
         self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.progressBar)
 # to update the toModelComboBox options based on the fromModelComboBox so that user does not select same model for conversion   
-        self.fromModelComboBox.currentIndexChanged.connect(self.updateToModelOptions)
+        # self.fromModelComboBox.currentIndexChanged.connect(self.updateToModelOptions)
         self.toModelComboBox.currentIndexChanged.connect(self.updateCheckboxState)
 
 # to update the toModelComboBox options based on the fromModelComboBox so that user does not select same model for conversion
-    def updateToModelOptions(self):
-        selected_model = self.fromModelComboBox.currentText()
-        self.toModelComboBox.clear()
-        self.toModelComboBox.addItems([model for model in self.convert_models if model != selected_model])
+    # def updateToModelOptions(self):
+    #     selected_model = self.fromModelComboBox.currentText()
+    #     self.toModelComboBox.clear()
+    #     self.toModelComboBox.addItems([model for model in self.convert_models if model != selected_model])
+
+    def updateButtonState(self):
+        if self.fromModelComboBox.currentText() == self.toModelComboBox.currentText():
+            self.convertButton.hide()
+            self.compressButton.show()
+            self.compressCheckBox.setChecked(True)
+            self.eightBitCheckBox.setChecked(True)
+            self.compressButton.setDisabled(False)
+        else:
+            self.convertButton.show()
+            self.compressButton.hide()
+
+        # Enable or disable the compress button based on the checkboxes
+    def updateButtonStatus(self):
+        if not (self.compressCheckBox.isChecked() or self.eightBitCheckBox.isChecked()):
+            self.compressButton.setDisabled(True)
+        else:
+            self.compressButton.setDisabled(False)
+        
 
     def updateCheckboxState(self):
         selected_model = self.toModelComboBox.currentText()
@@ -639,6 +851,7 @@ class Plugin:
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.qualityComboBox)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.compressCheckBox)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.convertButton)
+        self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.compressButton)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.progressBar)
         self.headLabel.deleteLater()
         self.fromModelComboBox.deleteLater()
@@ -648,4 +861,5 @@ class Plugin:
         self.qualityComboBox.deleteLater()
         self.compressCheckBox.deleteLater()
         self.convertButton.deleteLater()
+        self.compressButton.deleteLater()
         self.progressBar.deleteLater()
