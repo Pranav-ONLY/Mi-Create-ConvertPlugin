@@ -4,7 +4,7 @@ import subprocess
 import logging
 import traceback
 from utils.project import FprjProject, GMFProject
-from PyQt6.QtWidgets import QPushButton, QLabel, QProgressBar, QComboBox, QFileDialog, QCheckBox, QHBoxLayout
+from PyQt6.QtWidgets import QPushButton, QLabel, QProgressBar, QComboBox, QFileDialog, QCheckBox, QHBoxLayout, QRadioButton
 from PyQt6.QtCore import Qt
 from plugin_api import PluginAPI
 
@@ -550,6 +550,8 @@ class Plugin:
         self.progressBar.setValue(0)
         self.main_window.saveProjects("current")
 
+
+
     def projectCompression(self, project):
         if self.eightBitCheckBox.isChecked() or self.compressCheckBox.isChecked():
             print("Compression Started")
@@ -561,16 +563,10 @@ class Plugin:
         self.projectImagepath = project['imageFolder']
         self.from_model = self.fromModelComboBox.currentText()
         self.to_model = self.toModelComboBox.currentText()
-        if self.from_model != self.to_model:
-            print("Invalid Compression, Please select Similar models for image compression.")
-            return
-        print(f"Compressiong {self.from_model}, 8-bit={self.eightBitCheckBox.isChecked()}, optimizePNG={self.compressCheckBox.isChecked()}")
-    
         self.is_8bit = True if self.eightBitCheckBox.isChecked() else False
         self.compressPNG = True if self.compressCheckBox.isChecked() else False
         self.image_compressed_map = {} # to store compressed images to avoid compressing same image again and again
         
-
         #compress preview image
         if str(project['data']['FaceProject']['Screen']['@Bitmap']) != '':
             preview_image = os.path.join(self.projectImagepath, str(project['data']['FaceProject']['Screen']['@Bitmap']))
@@ -658,12 +654,7 @@ class Plugin:
                         if self.compressPNG:
                             self.compressImage(img_path)
                         self.image_compressed_map[widget['@SecondHand_Image']] = True
-
             self.progressBar.setValue(i + 1)# Update progress bar
-
-
-
-
 
     def compression(self, event=None, projectLocation=None):
         print("Compression Started")
@@ -728,10 +719,22 @@ class Plugin:
         # Function is called upon plugin initialization
         # This function is only called when the plugin is not disabled
         print("register")
-        # For head Lable
-        self.headLabel = QLabel("Convert :", self.main_window.coreDialog)
-        self.headLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.headLabel)
+        # # For head Lable
+        # self.headLabel = QLabel("Convert :", self.main_window.coreDialog)
+        # self.headLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.headLabel)
+
+        #For creating separate section between convert and compress
+        self.radio_btn_convert = QRadioButton("Convert", self.main_window.coreDialog)
+        self.radio_btn_convert.setChecked(True)  # Set Convert as default
+        self.radio_btn_convert.setToolTip("Convert between different watch models")
+        self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.radio_btn_convert)
+        self.radio_btn_compress = QRadioButton("Compress", self.main_window.coreDialog)
+        self.radio_btn_compress.setToolTip("Compress images to reduce Project size")
+        self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.radio_btn_compress)
+        # Connect radio buttons to toggle between convert and compress
+        self.radio_btn_convert.toggled.connect(self.toggleConvertCompress)
+        self.radio_btn_compress.toggled.connect(self.toggleConvertCompress)
 
         # for fromModelComboBox selectList 
         self.fromModelComboBox = QComboBox(self.main_window.coreDialog)
@@ -790,47 +793,51 @@ class Plugin:
         self.compressCheckBox.clicked.connect(self.updateButtonStatus)  # Update button state when checkbox is clicked
         self.eightBitCheckBox.clicked.connect(self.updateButtonStatus)  # Update button state when checkbox is clicked   
 
-        #for changing conversion to compression
-        self.toModelComboBox.currentIndexChanged.connect(self.updateButtonState)
-        self.fromModelComboBox.currentIndexChanged.connect(self.updateButtonState)
-
-
         # for little progress bar
         self.progressBar = QProgressBar(self.main_window.coreDialog)
         self.progressBar.setMaximum(100)
         self.main_window.coreDialog.welcomeSidebarLayout.addWidget(self.progressBar)
 # to update the toModelComboBox options based on the fromModelComboBox so that user does not select same model for conversion   
-        # self.fromModelComboBox.currentIndexChanged.connect(self.updateToModelOptions)
+        self.fromModelComboBox.currentIndexChanged.connect(self.updateToModelOptions)
         self.toModelComboBox.currentIndexChanged.connect(self.updateCheckboxState)
 
 # to update the toModelComboBox options based on the fromModelComboBox so that user does not select same model for conversion
-    # def updateToModelOptions(self):
-    #     selected_model = self.fromModelComboBox.currentText()
-    #     self.toModelComboBox.clear()
-    #     self.toModelComboBox.addItems([model for model in self.convert_models if model != selected_model])
+    def updateToModelOptions(self):
+        selected_model = self.fromModelComboBox.currentText()
+        self.toModelComboBox.clear()
+        self.toModelComboBox.addItems([model for model in self.convert_models if model != selected_model])
 
-    def updateButtonState(self):
-        if self.fromModelComboBox.currentText() == self.toModelComboBox.currentText():
+    def toggleConvertCompress(self):
+        if self.radio_btn_convert.isChecked():
+            self.updateCheckboxState()
+            self.convertButton.show()
+            self.compressButton.hide()
+            self.arrowLabel.show()
+            self.fromModelComboBox.show()
+            self.toModelComboBox.show()
+            self.compressCheckBox.setChecked(False)
+            self.eightBitCheckBox.setChecked(False)
+        elif self.radio_btn_compress.isChecked():
+            self.updateCheckboxState()
             self.convertButton.hide()
             self.compressButton.show()
+            self.arrowLabel.hide()
+            self.toModelComboBox.hide()
+            self.fromModelComboBox.hide()
             self.compressCheckBox.setChecked(True)
             self.eightBitCheckBox.setChecked(True)
             self.compressButton.setDisabled(False)
-        else:
-            self.convertButton.show()
-            self.compressButton.hide()
 
-        # Enable or disable the compress button based on the checkboxes
+    #     # Enable or disable the compress button based on the checkboxes
     def updateButtonStatus(self):
         if not (self.compressCheckBox.isChecked() or self.eightBitCheckBox.isChecked()):
             self.compressButton.setDisabled(True)
         else:
             self.compressButton.setDisabled(False)
         
-
     def updateCheckboxState(self):
         selected_model = self.toModelComboBox.currentText()
-        if selected_model in ['Redmi Watch 3 Active', 'Redmi Watch 5 Active', 'Redmi Watch 5 Lite']:
+        if selected_model in ['Redmi Watch 3 Active', 'Redmi Watch 5 Active', 'Redmi Watch 5 Lite'] and self.radio_btn_convert.isChecked():
             self.eightBitCheckBox.setChecked(True)
             self.eightBitCheckBox.setEnabled(False)
         else:
@@ -843,7 +850,9 @@ class Plugin:
         # Function called upon disabling a plugin
         # This function only calls when the user disables the plugin
         print("unregister")
-        self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.headLabel)
+        # self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.headLabel)
+        self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.radio_btn_convert)
+        self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.radio_btn_compress)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.fromModelComboBox)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.arrowLabel)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.toModelComboBox)
@@ -853,7 +862,9 @@ class Plugin:
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.convertButton)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.compressButton)
         self.main_window.coreDialog.welcomeSidebarLayout.removeWidget(self.progressBar)
-        self.headLabel.deleteLater()
+        # self.headLabel.deleteLater()
+        self.radio_btn_convert.deleteLater()
+        self.radio_btn_compress.deleteLater()
         self.fromModelComboBox.deleteLater()
         self.arrowLabel.deleteLater()
         self.toModelComboBox.deleteLater()

@@ -11,6 +11,7 @@ Please report any issues to https://t.me/Pranav_8393
 
 ## Key Features:
 - Convert watch faces between Xiaomi devices.
+- Compress your existing watchface Project.
 - Supports Lossless PNG Compression. (helpful for animated watch faces)
 - Supports 8-bit conversion
 
@@ -19,7 +20,7 @@ Please report any issues to https://t.me/Pranav_8393
 1. **Make a copy** of the project you want to convert.![1](images/1.png)
 NOTE: Please use copy of the original project, this plugin will overwrite all the original work. 
 
-2. **Select device types** in the Convert menu.![2](images/2.png)
+2. **Select device types** in the Convert menu and click Convert button.![2](images/2.png)
 3. Choose the `.fprj` project file.![3](images/3.png)
 
 4. **Wait** for the progress bar to finish
@@ -27,6 +28,13 @@ NOTE: Please use copy of the original project, this plugin will overwrite all th
 NOTE: sometimes it might briefly go into the "Not Responding" state; give it one minute
 
 5. After conversion, click "Build" to compile the project.![5](images/5.png)
+
+## How To Compress:
+1. **Select Same device types** in the Convert menu.![2](images/2.png)
+2. **Choose** the `.fprj` project file.![3](images/3.png)
+3. **Wait** for the progress bar to finish
+.![4](images/4.png)
+4. After Compression, click "Build" to compile the project.![5](images/5.png)
 
 ### Compatibility Notes:
 - Supported devices-
